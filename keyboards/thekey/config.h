@@ -48,7 +48,7 @@
 // #define BACKLIGHT_BREATHING
 #define BACKLIGHT_LEVELS 3
 
-#define COMBO_COUNT 3
+#define COMBO_COUNT 1
 
 #define RGB_DI_PIN B1
 #ifdef RGB_DI_PIN

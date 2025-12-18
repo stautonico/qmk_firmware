@@ -7,6 +7,33 @@ enum layer_number {
   _ADJUST,
 };
 
+typedef enum {
+    MENU_NONE,
+    MENU_MAIN
+} menu_state_t;
+
+static menu_state_t menu_state = MENU_MAIN;
+static uint8_t menu_index = 0;
+
+#define MENU_ITEM_COUNT 3
+
+static const char *menu_items[MENU_ITEM_COUNT] = {
+    "RESET",
+    "OLED OFF",
+    "QWERTY"
+};
+
+enum custom_keycodes {
+    MENU_DOWN = SAFE_RANGE,
+    MENU_SELECT
+};
+
+// TODO: Bind the [] buttons to write {} when held (like the moonlander)
+// TODO: Rewrite the arrow key binds
+
+
+
+
 // https://github.com/MihaelN/lily58pro/
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
@@ -93,8 +120,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   [_ADJUST] = LAYOUT(
   XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,                   XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,
   XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,                   XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,
-  XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,                   XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,
-  XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,
+  XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,                   XXXXXXX, MENU_SELECT, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,
+  XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, MENU_DOWN, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,
                              _______, _______, _______, _______, _______,  _______, _______, _______
   )
 };
@@ -107,8 +134,9 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 #ifdef OLED_ENABLE
 
 oled_rotation_t oled_init_user(oled_rotation_t rotation) {
-  if (!is_keyboard_master())
-    return OLED_ROTATION_180;  // flips the display 180 degrees if offhand
+    return OLED_ROTATION_270;
+  //if (!is_keyboard_master())
+  //   return OLED_ROTATION_180;  // flips the display 180 degrees if offhand
   return rotation;
 }
 
@@ -123,7 +151,7 @@ const char *read_keylogs(void);
 // const char *read_host_led_state(void);
 // void set_timelog(void);
 // const char *read_timelog(void);
-
+/*
 static void render_venom_left(void) {
   static const char PROGMEM venom_left[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -162,7 +190,6 @@ static void render_venom_left(void) {
 
   oled_write_raw_P(venom_left, sizeof(venom_left));
 }
-
 static void render_venom_right(void) {
   static const char PROGMEM venom_right[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80, 0xc0, 0xe0,
@@ -201,10 +228,39 @@ static void render_venom_right(void) {
 
   oled_write_raw_P(venom_right, sizeof(venom_right));
 }
+*/
+static void render_menu(void) {
+    oled_clear();
+
+    oled_set_cursor(0,0);
+    oled_write_ln("MENU", false);
+
+    for (uint8_t i = 0; i < MENU_ITEM_COUNT; i++) {
+        oled_set_cursor(0, i+1);
+
+        if (i == menu_index) {
+            oled_write("> ", false);
+        } else {
+            oled_write(" ", false);
+        }
+
+        oled_write_ln(menu_items[i], false);
+    }
+}
 
 bool oled_task_user(void) {
-  if (is_keyboard_master()) {
-    render_venom_left();
+    switch (menu_state) {
+            case MENU_MAIN:
+                render_menu();
+                break;
+            case MENU_NONE:
+            default:
+                oled_clear();
+                oled_write_ln("IDLE", false);
+                break;
+        }
+    //oled_write_ln(read_layer_state(), false);
+    //render_venom_left();
     // If you want to change the display of OLED, you need to change here
     //oled_write_ln(read_layer_state(), false);
     //oled_write_ln(read_keylog(), false);
@@ -212,20 +268,34 @@ bool oled_task_user(void) {
     //oled_write_ln(read_mode_icon(keymap_config.swap_lalt_lgui), false);
     //oled_write_ln(read_host_led_state(), false);
     //oled_write_ln(read_timelog(), false);
-  } else {
-        render_venom_right();
     //oled_write(read_logo(), false);
-  }
     return false;
 }
 #endif // OLED_ENABLE
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-  if (record->event.pressed) {
-#ifdef OLED_ENABLE
-    set_keylog(keycode, record);
-#endif
-    // set_timelog();
-  }
+    if (!record->event.pressed) return true;
+
+    switch (keycode) {
+        case MENU_DOWN:
+            menu_index = (menu_index +1) % MENU_ITEM_COUNT;
+            return false;
+
+        case MENU_SELECT:
+            switch (menu_index) {
+                case 0:
+                    soft_reset_keyboard();
+                    break;
+                case 1:
+                    oled_off();
+                    break;
+                case 2:
+                    break;
+            }
+        return false;
+    }
+
   return true;
 }
+
+

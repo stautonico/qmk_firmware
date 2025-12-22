@@ -42,9 +42,4 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define RGBLIGHT_SAT_STEP 17
 #define RGBLIGHT_VAL_STEP 17
 
-// Underglow
-/*
-#undef RGBLIGHT_LED_COUNT
-#define RGBLIGHT_LED_COUNT 14    // Number of LEDs
-#define RGBLIGHT_SLEEP
-*/
+#define FIRMWARE_VERSION "v1.1"

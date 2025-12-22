@@ -1,38 +1,18 @@
 #include QMK_KEYBOARD_H
-
-enum layer_number {
-  _QWERTY = 0,
-  _LOWER,
-  _RAISE,
-  _ADJUST,
-};
-
-typedef enum {
-    MENU_NONE,
-    MENU_MAIN
-} menu_state_t;
-
-static menu_state_t menu_state = MENU_MAIN;
-static uint8_t menu_index = 0;
-
-#define MENU_ITEM_COUNT 3
-
-static const char *menu_items[MENU_ITEM_COUNT] = {
-    "RESET",
-    "OLED OFF",
-    "QWERTY"
-};
-
-enum custom_keycodes {
-    MENU_DOWN = SAFE_RANGE,
-    MENU_SELECT
-};
-
-
+#include "oled.h"
+#include "shared.h"
+#include "menu.h"
 
 enum {
     TD_SQUARE_LEFT,
     TD_SQUARE_RIGHT,
+};
+
+enum custom_keycodes {
+    MENU_DOWN = SAFE_RANGE,
+    MENU_UP,
+    MENU_SELECT,
+    MENU_TOGGLE
 };
 
 void td_left_finished(tap_dance_state_t *state, void *user_data) {
@@ -74,8 +54,6 @@ tap_dance_action_t tap_dance_actions[] = {
 };
 
 
-
-// https://github.com/MihaelN/lily58pro/
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
@@ -141,17 +119,17 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   KC_GRV,  KC_1,    KC_2,    KC_3,    KC_4,    KC_5,                        KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    _______,
   KC_F1,  KC_F2,    KC_F3,   KC_F4,   KC_F5,   KC_F6,                       XXXXXXX, KC_LEFT, KC_DOWN, KC_UP,   KC_RGHT, XXXXXXX,
   KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,   _______, _______,  KC_PLUS, KC_MINS, KC_EQL,  KC_LBRC, KC_RBRC, KC_BSLS,
-                             _______, _______, _______,  _______, _______,  _______, KC_DEL _______
+                             _______, _______, _______,  _______, _______,  _______, KC_DEL, _______
 ),
 /* ADJUST
  * ,-----------------------------------------.                    ,-----------------------------------------.
  * |      |      |      |      |      |      |                    |      |      |      |      |      |      |
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
- * |      |      |      |      |      |      |                    |      |      |      |      |      |      |
+ * |      |      |      |      |      |      |                    |MENUUP|      |      |      |      |      |
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
- * |      |      |      |      |      |      |-------.    ,-------|      |      |RGB ON| HUE+ | SAT+ | VAL+ |
+ * |      |      |      |      |      |      |-------.    ,-------|MENUSL|MENUTG|RGB ON| HUE+ | SAT+ | VAL+ |
  * |------+------+------+------+------+------|       |    |       |------+------+------+------+------+------|
- * |      |      |      |      |      |      |-------|    |-------|      |      | MODE | HUE- | SAT- | VAL- |
+ * |      |      |      |      |      |      |-------|    |-------|MENUDN|      | MODE | HUE- | SAT- | VAL- |
  * `-----------------------------------------/       /     \      \-----------------------------------------'
  *                   | LAlt | LGUI |LOWER | /Space  /       \Enter \  |RAISE |BackSP| RGUI |
  *                   |      |      |      |/       /         \      \ |      |      |      |
@@ -159,93 +137,30 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  */
   [_ADJUST] = LAYOUT(
   XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,                   XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,
-  XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,                   XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,
-  XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,                   XXXXXXX, MENU_SELECT, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,
-  XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, MENU_DOWN, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,
+  XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,                   MENU_UP, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,
+  XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,                   MENU_SELECT, MENU_TOGGLE, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,
+  XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, MENU_DOWN, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,
                              _______, _______, _______, _______, _______,  _______, _______, _______
   )
 };
 
 layer_state_t layer_state_set_user(layer_state_t state) {
-  return update_tri_layer_state(state, _LOWER, _RAISE, _ADJUST);
+    shared_state.layer = get_highest_layer(state);
+    return update_tri_layer_state(state, _LOWER, _RAISE, _ADJUST);
 }
 
-//SSD1306 OLED update loop, make sure to enable OLED_ENABLE=yes in rules.mk
-#ifdef OLED_ENABLE
-
-oled_rotation_t oled_init_user(oled_rotation_t rotation) {
-    if (!is_keyboard_master()) {
-        return OLED_ROTATION_180;
-    }
-  //if (!is_keyboard_master())
-  //   return OLED_ROTATION_180;  // flips the display 180 degrees if offhand
-  return rotation;
-}
-
-// When you add source files to SRC in rules.mk, you can use functions.
-const char *read_layer_state(void);
-const char *read_logo(void);
-void set_keylog(uint16_t keycode, keyrecord_t *record);
-const char *read_keylog(void);
-const char *read_keylogs(void);
-
-static void render_menu(void) {
-    oled_clear();
-
-    oled_set_cursor(0,0);
-    oled_write_ln("MENU", false);
-
-    for (uint8_t i = 0; i < MENU_ITEM_COUNT; i++) {
-        oled_set_cursor(0, i+1);
-
-        if (i == menu_index) {
-            oled_write("> ", false);
-        } else {
-            oled_write(" ", false);
-        }
-
-        oled_write_ln(menu_items[i], false);
-    }
-}
-
-bool oled_task_user(void) {
-    switch (menu_state) {
-            case MENU_MAIN:
-                render_menu();
-                break;
-            case MENU_NONE:
-            default:
-                oled_clear();
-                oled_write_ln("IDLE", false);
-                break;
-        }
-    return false;
-}
-#endif // OLED_ENABLE
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (!record->event.pressed) return true;
 
     switch (keycode) {
-        case MENU_DOWN:
-            menu_index = (menu_index +1) % MENU_ITEM_COUNT;
+        case MENU_UP: menu_next(); return false;
+        case MENU_DOWN:   menu_prev(); return false;
+        case MENU_SELECT: menu_select(); return false;
+        case MENU_TOGGLE:
+            shared_state.menu_active = !shared_state.menu_active;
             return false;
-
-        case MENU_SELECT:
-            switch (menu_index) {
-                case 0:
-                    soft_reset_keyboard();
-                    break;
-                case 1:
-                    oled_off();
-                    break;
-                case 2:
-                    break;
-            }
-        return false;
     }
 
-  return true;
+    return true;
 }
-
-
